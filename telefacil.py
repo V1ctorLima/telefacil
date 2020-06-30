@@ -1,60 +1,151 @@
-#!/bin/python
 # coding: utf-8
 from datetime import date
-import requests
-import json
+import argparse, requests, json, sys
 
-def getting_lotery_results():
+def read_games_from_file(user_input_filename):
     try:
-        get_lotofacil_content = requests.get('http://loterias.caixa.gov.br/wps/portal/loterias/landing/lotofacil/!ut/p/a1/04_Sj9CPykssy0xPLMnMz0vMAfGjzOLNDH0MPAzcDbz8vTxNDRy9_Y2NQ13CDA0sTIEKIoEKnN0dPUzMfQwMDEwsjAw8XZw8XMwtfQ0MPM2I02-AAzgaENIfrh-FqsQ9wBmoxN_FydLAGAgNTKEK8DkRrACPGwpyQyMMMj0VAcySpRM!/dl5/d5/L2dBISEvZ0FBIS9nQSEh/pw/Z7_61L0H0G0J0VSC0AC4GLFAD2003/res/id=buscaResultado')
+        with open(user_input_filename,"r") as input_filename:
+                user_file_readed_raw = input_filename.read()
+                return user_file_readed_raw
     except:
-        print("An exception occurred")
-    json_content = get_lotofacil_content.text
-    wdatajson_content = json.loads(json_content)
-    numero_concurso = wdatajson_content['nu_concurso']
-    parsing_numeros_sorteados = wdatajson_content['resultadoOrdenado']
-    numeros_sorteados = parsing_numeros_sorteados.split("-")
+        print("Não consegui encontrar o arquivo " + user_input_filename)
 
-    return numeros_sorteados, numero_concurso
+def validate_quantity_of_numbers(user_file_readed_raw):
+    if len(user_file_readed_raw.split(',')) != 15:
+        sys.exit("Jogo não tem a quantidade de numeros correta, deve ter exatamente 15 números!")
 
-def compare_lotery_game(n_sorteados, n_concurso):
+def validate_number_of_game(user_file_readed_raw):
+    jogo = (user_file_readed_raw.split(','))
+    for j in jogo:
+        if not 1 <= int(j) <= 25:
+            sys.exit("O número " + str(j) + " não pode estar no jogo!\nPor favor corrija antes de continuar...")
 
-    jogo_1 = ["01","02","04","05","06","07","09","10","12","14","15","16","20","24","25"]
-    jogo_2 = ["01","02","04","05","06","08","09","10","12","13","16","18","19","20","25"]
-
-    today = date.today()
-    jogos_premiados = []
-    cont = 0
-    for k in (jogo_1,jogo_2):
-        for i in k:
-            for j in n_sorteados:
-                if i == j:
-                    cont = cont + 1
-        if cont >= 11:
-            jogos_premiados.append(cont)
-        cont = 0 
-
-    if len(jogos_premiados) != 0:
-        msg = str(today) + " ## " + n_concurso + " - Parabens, voce teve " + str(len(jogos_premiados)) + " jogos premiados, sendo eles de " + str(jogos_premiados) + " acertos !!!"
-    elif len(jogos_premiados) == 1:
-        msg = str(today) + " ## " + n_concurso + " - Parabens, voce teve " + str(len(jogos_premiados)) + " jogo premiado, sendo eles de " + str(jogos_premiados) + " acertos !!!"
+def getting_lotofacil_json_content():
+    try:
+        lotofacil_content = requests.get('http://loterias.caixa.gov.br/wps/portal/loterias/landing/lotofacil/!ut/p/a1/04_Sj9CPykssy0xPLMnMz0vMAfGjzOLNDH0MPAzcDbz8vTxNDRy9_Y2NQ13CDA0sTIEKIoEKnN0dPUzMfQwMDEwsjAw8XZw8XMwtfQ0MPM2I02-AAzgaENIfrh-FqsQ9wBmoxN_FydLAGAgNTKEK8DkRrACPGwpyQyMMMj0VAcySpRM!/dl5/d5/L2dBISEvZ0FBIS9nQSEh/pw/Z7_61L0H0G0J0VSC0AC4GLFAD2003/res/id=buscaResultado')
+    except:
+        sys.exit("Não foi possivel acessar o site da caixa!")
     else:
-        msg = str(today) + " ## " + n_concurso + " - Infelizmente nenhum jogo foi premiado...  =("
-    return msg
+        lotofacil_json_content = lotofacil_content.json()
+        return lotofacil_json_content
 
-def post_message_telegram(msg_enc):
+def parsing_drawing(lotofacil_content_raw):
     try:
-        requests.get('https://api.telegram.org/bot<TELEGRAM_TOKEN>/sendMessage?chat_id=<CHAT_ID>&text=' + msg_enc )
+        drawing_number = lotofacil_content_raw['nu_concurso']
     except:
-        print("An exception occurred")
+        sys.exit("Não foi encontrado o número do concurso a partir da URL consultada...")
+    else:
+        return drawing_number
+
+def parsing_winning_numbers(lotofacil_content_raw):
+    try:
+        winning_numbers_raw = lotofacil_content_raw['resultadoOrdenado']
+    except:
+        sys.exit("Não foi encontrado os números sorteados a partir da URL consultada...")
+    else:
+        winning_numbers = winning_numbers_raw.split("-")
+        return winning_numbers
+
+def compare_several_lotery_game(user_file_readed_games, winning_numbers):
+    parsed_games = (user_file_readed_games.split(','))
+    total_hits = 0
+    for game in parsed_games:
+        if game in winning_numbers:
+            total_hits += 1
+    return str(total_hits)
+
+def check_if_several_games_lottery_win(total_games_hits):
+    final_result = []
+    for game in total_games_hits:
+        if int(game) >= 11:
+            final_result.append(game)
+    return final_result
+
+def check_if_one_lottery_game_win(total_game_hit):
+    if int(total_game_hit) >= 11:
+        got_it_winning = [total_game_hit]
+        return got_it_winning
+    else:
+        loose = ["0"]
+        return loose
+
+def generate_final_msg(final_result , drawing_number):
+    today = date.today()
+    if len(final_result) != 0:
+        final_message = str(today) + " ## " + drawing_number + " - Parabens, voce teve " + str(len(final_result)) + " jogos premiados, sendo eles de " + str(final_result) + " acertos !!!"
+    elif len(final_result) == 1:
+        final_message = str(today) + " ## " + drawing_number + " - Parabens, voce teve " + str(len(final_result)) + " jogo premiado, sendo eles de " + str(final_result) + " acertos !!!"
+    else:
+        final_message = str(today) + " ## " + drawing_number + " - Infelizmente nenhum jogo foi premiado...  =("
+    return final_message
+
+def send_results_to_telegram_api(final_message):
+    final_message_url_encoded = requests.utils.quote(final_message)
+    try:
+        with open("./.credentials/telegram.json","r") as telegram_file:
+            telegram_creds = telegram_file.read()
+            token_telegram_creds = json.loads(telegram_creds)
+    except:
+        sys.exit("Não foi possivel abrir o arquivo .credentials/telegram.json")
+
+    try:
+        requests.get('https://api.telegram.org/bot' + token_telegram_creds["TELEGRAM_TOKEN"] + '/sendMessage?chat_id=' + token_telegram_creds["CHAT_ID"] + '&text=' + final_message_url_encoded)
+    except:
+        sys.exit("Não foi possivel enviar um request para a API do Telegram")
+
+def adding_arguments():
+    parse_arg = argparse.ArgumentParser(prog='telefacil.py', description='Telefácil mostra o resultado de seus jogos da Lotofacil')
+    parse_arg.add_argument('-f', metavar="filename.json", help='Insira o nome de um arquivo com seus jogos no formato json para ser lido. Exemplo: python telefacil.py -f <arquivo.json>')
+    parse_arg.add_argument('-j', metavar="1,...,25", help='Insira os números de um jogo separado por virgula. Exemplo: python telefacil.py -j 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15')
+    parse_arg.add_argument('-t', action='store_true', help='Use esta opção caso queira enviar o resultado para um grupo do Telegram. Lembre-se de configurar o arquivo .credentials/telegram.json. Exemplo: python telefacil.py (-f ou -j) -t')
+    user_raw_input = parse_arg.parse_args()
+    return user_raw_input
 
 def main():
-    get_lotery_results = getting_lotery_results()
-    numeros_sorteados = get_lotery_results[0]
-    numero_concurso = get_lotery_results[1]
-    msg = compare_lotery_game(numeros_sorteados, numero_concurso)
-    msg_enc = requests.utils.quote(msg)
-    post_message_telegram(msg_enc)
+    user_raw_input = adding_arguments()
+    if user_raw_input.f is not None:
+        file_input_raw = read_games_from_file(user_raw_input.f)
+        file_user_input_json = json.loads(file_input_raw)
+        user_quantity_of_games = 0
+        for game in file_user_input_json["jogos"]:
+            validate_quantity_of_numbers(game)
+            validate_number_of_game(game)
+            user_quantity_of_games += 1
+        print("Tudo certo com seus jogos, você informou " + str(user_quantity_of_games) + " jogos de Lotofácil!")
+        print("Baixando conteúdo da caixa")
+        lotofacil_json_content = getting_lotofacil_json_content()
+        drawing_number = parsing_drawing(lotofacil_json_content)
+        winning_numbers = parsing_winning_numbers(lotofacil_json_content)
+        game_list = []
+        for game in file_user_input_json["jogos"]:
+            result = compare_several_lotery_game(game, winning_numbers)
+            game_list.append(result)
+        final_results = check_if_several_games_lottery_win(game_list)
+        final_mesage = generate_final_msg(final_results, drawing_number)
+        if user_raw_input.t is True:
+            send_results_to_telegram_api(final_mesage)
+        else:
+            print(final_mesage)
+
+    elif user_raw_input.j is not None:
+        input_raw = user_raw_input.j
+        validate_quantity_of_numbers(input_raw)
+        validate_number_of_game(input_raw)
+        print("Tudo certo com seu jogo da Lotofácil!")
+        print("Baixando conteúdo da caixa")
+        lotofacil_json_content = getting_lotofacil_json_content()
+        drawing_number = parsing_drawing(lotofacil_json_content)
+        winning_numbers = parsing_winning_numbers(lotofacil_json_content)
+        result = compare_several_lotery_game(input_raw, winning_numbers)
+        final_results = check_if_one_lottery_game_win(result)
+        final_mesage = generate_final_msg(final_results, drawing_number)
+        if user_raw_input.t is True:
+            send_results_to_telegram_api(final_mesage)
+        else:
+            print(final_mesage)
+
+    else:
+        sys.exit('Por favor, insira algum argumento para continuar, ou -h para ver as opções disponivéis')
 
 if __name__ == "__main__":
     main()
