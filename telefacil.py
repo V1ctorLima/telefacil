@@ -1,14 +1,16 @@
 # coding: utf-8
 from datetime import date
-import argparse, requests, json, sys
+import argparse
+import requests
+import json
+import sys
 
 def read_games_from_file(user_input_filename):
     try:
         with open(user_input_filename,"r") as input_filename:
-                user_file_readed_raw = input_filename.read()
-                return user_file_readed_raw
-    except:
-        print("Não consegui encontrar o arquivo " + user_input_filename)
+            return input_filename.read()
+    except FileNotFoundError:
+        sys.exit("Não consegui encontrar o arquivo " + user_input_filename)
 
 def validate_quantity_of_numbers(user_file_readed_raw):
     if len(user_file_readed_raw.split(',')) != 15:
@@ -23,31 +25,27 @@ def validate_number_of_game(user_file_readed_raw):
 def getting_lotofacil_json_content():
     try:
         lotofacil_content = requests.get('http://loterias.caixa.gov.br/wps/portal/loterias/landing/lotofacil/!ut/p/a1/04_Sj9CPykssy0xPLMnMz0vMAfGjzOLNDH0MPAzcDbz8vTxNDRy9_Y2NQ13CDA0sTIEKIoEKnN0dPUzMfQwMDEwsjAw8XZw8XMwtfQ0MPM2I02-AAzgaENIfrh-FqsQ9wBmoxN_FydLAGAgNTKEK8DkRrACPGwpyQyMMMj0VAcySpRM!/dl5/d5/L2dBISEvZ0FBIS9nQSEh/pw/Z7_61L0H0G0J0VSC0AC4GLFAD2003/res/id=buscaResultado')
-    except:
-        sys.exit("Não foi possivel acessar o site da caixa!")
-    else:
-        lotofacil_json_content = lotofacil_content.json()
-        return lotofacil_json_content
+        return lotofacil_content.json()
+    except requests.RequestException as e:
+        sys.exit("Não foi possivel acessar o site da caixa! - Exception " + e)
 
 def parsing_drawing(lotofacil_content_raw):
     try:
         drawing_number = lotofacil_content_raw['nu_concurso']
+        return drawing_number
     except:
         sys.exit("Não foi encontrado o número do concurso a partir da URL consultada...")
-    else:
-        return drawing_number
 
 def parsing_winning_numbers(lotofacil_content_raw):
     try:
         winning_numbers_raw = lotofacil_content_raw['resultadoOrdenado']
-    except:
-        sys.exit("Não foi encontrado os números sorteados a partir da URL consultada...")
-    else:
         winning_numbers = winning_numbers_raw.split("-")
         return winning_numbers
+    except:
+        sys.exit("Não foi encontrado os números sorteados a partir da URL consultada...")
 
 def compare_several_lotery_game(user_file_readed_games, winning_numbers):
-    parsed_games = (user_file_readed_games.split(','))
+    parsed_games = user_file_readed_games.split(',')
     total_hits = 0
     for game in parsed_games:
         if game in winning_numbers:
@@ -63,18 +61,16 @@ def check_if_several_games_lottery_win(total_games_hits):
 
 def check_if_one_lottery_game_win(total_game_hit):
     if int(total_game_hit) >= 11:
-        got_it_winning = [total_game_hit]
-        return got_it_winning
-    else:
-        loose = ["0"]
-        return loose
+        return [total_game_hit]
+    return ["0"]
 
 def generate_final_msg(final_result , drawing_number):
     today = date.today()
-    if len(final_result) != 0:
-        final_message = str(today) + " ## " + drawing_number + " - Parabens, voce teve " + str(len(final_result)) + " jogos premiados, sendo eles de " + str(final_result) + " acertos !!!"
-    elif len(final_result) == 1:
-        final_message = str(today) + " ## " + drawing_number + " - Parabens, voce teve " + str(len(final_result)) + " jogo premiado, sendo eles de " + str(final_result) + " acertos !!!"
+    lenght_final_result = len(final_result)
+    if lenght_final_result != 0:
+        final_message = str(today) + " ## " + drawing_number + " - Parabens, você teve " + lenght_final_result + " jogos premiados, sendo eles de " + str(final_result) + " acertos !!!"
+    elif lenght_final_result == 1:
+        final_message = str(today) + " ## " + drawing_number + " - Parabens, você teve " + lenght_final_result + " jogo premiado, sendo eles de " + str(final_result) + " acertos !!!"
     else:
         final_message = str(today) + " ## " + drawing_number + " - Infelizmente nenhum jogo foi premiado...  =("
     return final_message
