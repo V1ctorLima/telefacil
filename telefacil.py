@@ -5,7 +5,16 @@ import requests
 import json
 import sys
 import urllib3
+import os
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+empty = ''
+
+if not os.path.exists("ultimo_resultado.txt"):
+    with open("ultimo_resultado.txt","w") as file:
+        file.write(empty)  
+with open("ultimo_resultado.txt","r") as file:
+    ultimo_resultado = file.read()
 
 def read_games_from_file(user_input_filename):
     try:
@@ -37,9 +46,6 @@ def parsing_drawing(lotofacil_content_raw):
         return str(drawing_number)
     except:
         sys.exit("Não foi encontrado o número do concurso a partir da URL consultada...")
-    finally:
-        with open("ultimo_resultado.txt","w") as resultado:
-            resultado.write(str(drawing_number))
 
 def parsing_winning_numbers(lotofacil_content_raw):
     try:
@@ -77,6 +83,8 @@ def generate_final_msg(final_result , drawing_number):
         final_message = str(today) + " ## " + drawing_number + " - Parabens, você teve " + lenght_final_result + " jogo premiado, sendo eles de " + str(final_result) + " acertos !!!"
     else:
         final_message = str(today) + " ## " + drawing_number + " - Infelizmente nenhum jogo foi premiado...  =("
+    with open("ultimo_resultado.txt","w") as resultado:
+        resultado.write(str(drawing_number))
     return final_message
 
 def send_results_to_telegram_api(final_message):
@@ -115,22 +123,20 @@ def main():
         print("Baixando conteúdo da caixa")
         lotofacil_json_content = getting_lotofacil_json_content()
         drawing_number = parsing_drawing(lotofacil_json_content)
-        with open("ultimo_resultado.txt","r") as file:
-            ultimo_resultado = file.read()
-            if ultimo_resultado != drawing_number:
-                winning_numbers = parsing_winning_numbers(lotofacil_json_content)
-                game_list = []
-                for game in file_user_input_json["jogos"]:
-                    result = compare_several_lotery_game(game, winning_numbers)
-                    game_list.append(result)
-                final_results = check_if_several_games_lottery_win(game_list)
-                final_mesage = generate_final_msg(final_results, drawing_number)
-                if user_raw_input.t is True:
-                    send_results_to_telegram_api(final_mesage)
-                else:
-                    print(final_mesage)
+        if ultimo_resultado != drawing_number:
+            winning_numbers = parsing_winning_numbers(lotofacil_json_content)
+            game_list = []
+            for game in file_user_input_json["jogos"]:
+                result = compare_several_lotery_game(game, winning_numbers)
+                game_list.append(result)
+            final_results = check_if_several_games_lottery_win(game_list)
+            final_mesage = generate_final_msg(final_results, drawing_number)
+            if user_raw_input.t is True:
+                send_results_to_telegram_api(final_mesage)
             else:
-                sys.exit(f"Jogo {drawing_number} já validado")
+                print(final_mesage)
+        else:
+            sys.exit(f"Jogo {drawing_number} já validado")
 
     elif user_raw_input.j is not None:
         input_raw = user_raw_input.j
@@ -140,19 +146,17 @@ def main():
         print("Baixando conteúdo da caixa")
         lotofacil_json_content = getting_lotofacil_json_content()
         drawing_number = parsing_drawing(lotofacil_json_content)
-        with open("ultimo_resultado.txt","r") as file:
-            ultimo_resultado = file.read()
-            if ultimo_resultado != drawing_number:
-                winning_numbers = parsing_winning_numbers(lotofacil_json_content)
-                result = compare_several_lotery_game(input_raw, winning_numbers)
-                final_results = check_if_one_lottery_game_win(result)
-                final_mesage = generate_final_msg(final_results, drawing_number)
-                if user_raw_input.t is True:
-                    send_results_to_telegram_api(final_mesage)
-                else:
-                    print(final_mesage)
+        if ultimo_resultado != drawing_number:
+            winning_numbers = parsing_winning_numbers(lotofacil_json_content)
+            result = compare_several_lotery_game(input_raw, winning_numbers)
+            final_results = check_if_one_lottery_game_win(result)
+            final_mesage = generate_final_msg(final_results, drawing_number)
+            if user_raw_input.t is True:
+                send_results_to_telegram_api(final_mesage)
             else:
-                sys.exit(f"Jogo {drawing_number} já validado")
+                print(final_mesage)
+        else:
+            sys.exit(f"Jogo {drawing_number} já validado")
 
     else:
         sys.exit('Por favor, insira algum argumento para continuar, ou -h para ver as opções disponivéis')
