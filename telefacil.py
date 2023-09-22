@@ -24,23 +24,22 @@ def validate_number_of_game(user_file_readed_raw):
 
 def getting_lotofacil_json_content():
     try:
-        lotofacil_content = requests.get('http://loterias.caixa.gov.br/wps/portal/loterias/landing/lotofacil/!ut/p/a1/04_Sj9CPykssy0xPLMnMz0vMAfGjzOLNDH0MPAzcDbz8vTxNDRy9_Y2NQ13CDA0sTIEKIoEKnN0dPUzMfQwMDEwsjAw8XZw8XMwtfQ0MPM2I02-AAzgaENIfrh-FqsQ9wBmoxN_FydLAGAgNTKEK8DkRrACPGwpyQyMMMj0VAcySpRM!/dl5/d5/L2dBISEvZ0FBIS9nQSEh/pw/Z7_61L0H0G0J0VSC0AC4GLFAD2003/res/id=buscaResultado')
+        lotofacil_content = requests.get('https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/')
         return lotofacil_content.json()
     except requests.RequestException as e:
-        sys.exit("Não foi possivel acessar o site da caixa! - Exception " + e)
+        sys.exit("Não foi possivel acessar o resultado dos jogos! - Exception " + e)
 
 def parsing_drawing(lotofacil_content_raw):
     try:
-        drawing_number = lotofacil_content_raw['nu_concurso']
-        return drawing_number
+        drawing_number = lotofacil_content_raw['numero']
+        return str(drawing_number)
     except:
         sys.exit("Não foi encontrado o número do concurso a partir da URL consultada...")
 
 def parsing_winning_numbers(lotofacil_content_raw):
     try:
-        winning_numbers_raw = lotofacil_content_raw['resultadoOrdenado']
-        winning_numbers = winning_numbers_raw.split("-")
-        return winning_numbers
+        winning_numbers_raw = lotofacil_content_raw['listaDezenas']
+        return winning_numbers_raw
     except:
         sys.exit("Não foi encontrado os números sorteados a partir da URL consultada...")
 
